@@ -1,0 +1,6 @@
+__pycache__/
+.env
+*.exe
+*.pt
+*.h5
+node_modules/
