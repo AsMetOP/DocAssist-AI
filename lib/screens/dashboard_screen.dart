@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:doc_assist/core//theme.dart';
 import 'symptom_screen.dart';
 import 'upload_screen.dart';
 import 'document_screen.dart';
@@ -14,49 +15,41 @@ class DashboardScreen extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.04),
-            blurRadius: 12,
-          )
-        ],
-      ),
+      padding: const EdgeInsets.all(22),
+      decoration: AppTheme.cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF0FF),
-              borderRadius: BorderRadius.circular(14),
+              color: AppTheme.softBlue,
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(icon, color: const Color(0xFF2F6BFF)),
+            child: Icon(icon, color: AppTheme.primary),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Text(title,
               style: const TextStyle(
                   fontSize: 18, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(subtitle,
               style: const TextStyle(
-                  color: Color(0xFF6B7280))),
-          const SizedBox(height: 18),
+                color: AppTheme.textGrey,
+                height: 1.5,
+              )),
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEAF0FF),
-                foregroundColor: const Color(0xFF2F6BFF),
+                backgroundColor: AppTheme.softBlue,
+                foregroundColor: AppTheme.primary,
                 elevation: 0,
-                padding:
-                const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                padding: const EdgeInsets.symmetric(vertical: 15),
               ),
               onPressed: onTap,
               child: Text(buttonText),
@@ -70,27 +63,28 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F9),
+      backgroundColor: AppTheme.bg,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(22),
           child: ListView(
             children: [
-
-              const Text("Doccy",
-                  style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold)),
-
-              const SizedBox(height: 8),
-
+              const Text(
+                "DocAssist AI",
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
               const Text(
                 "A calm, non-diagnostic medical assistant for understanding symptoms and managing health records.",
-                style: TextStyle(color: Color(0xFF6B7280)),
+                style: TextStyle(
+                  color: AppTheme.textGrey,
+                  height: 1.6,
+                ),
               ),
-
-              const SizedBox(height: 24),
-
+              const SizedBox(height: 30),
               Row(
                 children: [
                   Expanded(
@@ -99,7 +93,7 @@ class DashboardScreen extends StatelessWidget {
                       title: "Analyze Symptoms",
                       subtitle:
                       "Describe what you feel and attach media if helpful.",
-                      buttonText: "Start →",
+                      buttonText: "Start",
                       onTap: () {
                         Navigator.push(
                           context,
@@ -110,7 +104,7 @@ class DashboardScreen extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: actionCard(
                       icon: Icons.upload_file_outlined,
@@ -130,78 +124,54 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ],
               ),
-
-              const SizedBox(height: 22),
-
+              const SizedBox(height: 26),
               Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                ),
+                padding: const EdgeInsets.all(22),
+                decoration: AppTheme.cardDecoration,
                 child: Column(
                   crossAxisAlignment:
                   CrossAxisAlignment.start,
                   children: [
-                    const Text("View Documents",
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
+                    const Text(
+                      "View Documents",
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight:
+                          FontWeight.w600),
+                    ),
+                    const SizedBox(height: 10),
                     const Text(
                       "Search, filter, and review your stored health records.",
-                      style: TextStyle(
-                          color: Color(0xFF6B7280)),
+                      style:
+                      TextStyle(color: AppTheme.textGrey),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        style:
-                        ElevatedButton.styleFrom(
-                          backgroundColor:
-                          const Color(0xFF2F6BFF),
-                          padding:
-                          const EdgeInsets.symmetric(
-                              vertical: 15),
-                          shape:
-                          RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(
-                                14),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.softBlue,
+                          foregroundColor: AppTheme.primary,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
                         ),
                         onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) =>
-                                const DocumentsScreen()),
+                              builder: (_) => const DocumentScreen(),
+                            ),
                           );
                         },
-                        child: const Text(
-                          "Open vault →",
-                        ),
+                        child: const Text("Open vault"),
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),
-
-              const SizedBox(height: 22),
-
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: const Text(
-                  "This app is not a medical diagnostic tool and cannot replace professional medical advice. For emergencies call your local emergency number.",
-                  style: TextStyle(
-                      color: Color(0xFF6B7280)),
-                ),
-              )
             ],
           ),
         ),

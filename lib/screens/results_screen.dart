@@ -1,279 +1,234 @@
 import 'package:flutter/material.dart';
+import 'package:doc_assist/core/theme.dart';
 
 class ResultsScreen extends StatelessWidget {
   final String symptom;
+  final String duration;
+  final String severity;
+  final String bodyArea;
+  final Map<String, dynamic>? result;
 
-  const ResultsScreen({super.key, required this.symptom});
+  const ResultsScreen({
+    super.key,
+    required this.symptom,
+    this.duration = "",
+    this.severity = "",
+    this.bodyArea = "",
+    this.result,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final guidance = result?["structured_guidance"] ?? {};
+    final predictions = result?["top_predictions"] ?? [];
+
+    final urgency = guidance["urgency"] ?? "Unknown";
+    final recommendation =
+        guidance["recommendation"] ?? "Consult a clinician.";
+    final doctor = guidance["doctor"] ?? "General Physician";
+    final advice = guidance["advice"] ?? "Rest and monitor symptoms.";
+
+    Color urgencyColor = Colors.green;
+    if (urgency == "Medium") urgencyColor = Colors.orange;
+    if (urgency == "High") urgencyColor = Colors.red;
+
+    final topDisease =
+    predictions.isNotEmpty ? predictions[0]["disease"] : "Unknown";
+    final topConfidence =
+    predictions.isNotEmpty ? (predictions[0]["confidence"] as num).toDouble() : 0.0;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F9),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF3F5F9),
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: TextButton.icon(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios,
-                size: 16, color: Colors.black),
-            label: const Text("Back",
-                style: TextStyle(color: Colors.black)),
-          ),
-        ),
-        title: const Text(
-          "Results",
-          style: TextStyle(color: Colors.black),
-        ),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: ListView(
-          children: [
-
-            /// STRUCTURED GUIDANCE CARD
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
+      backgroundColor: AppTheme.bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: ListView(
+            children: [
+              InkWell(
+                onTap: () {
+                  Navigator.popUntil(context, (route) => route.isFirst);
+                },
+                child: const Row(
+                  children: [
+                    Icon(Icons.arrow_back, size: 18),
+                    SizedBox(width: 6),
+                    Text("Back"),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
 
-                  Row(
-                    children: const [
-                      Icon(Icons.favorite_border,
-                          color: Color(0xFF2F6BFF)),
-                      SizedBox(width: 8),
-                      Text(
-                        "Structured guidance",
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16),
-                      )
-                    ],
+              const SizedBox(height: 20),
+
+              const Center(
+                child: Text(
+                  "AI Health Analysis",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 6),
+              const SizedBox(height: 24),
 
-                  const Text(
-                    "Informational only — not a diagnosis.",
-                    style:
-                        TextStyle(color: Color(0xFF6B7280)),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  Text(
-                    "“$symptom”",
-                    style: const TextStyle(
+              /// TOP RESULT CARD
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: AppTheme.cardDecoration,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Most Likely Condition",
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      topDisease,
+                      style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w600),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  const Text(
-                    "Duration: 10 days • Severity: Severe • Body area: Neck • Attachments: 0",
-                    style:
-                        TextStyle(color: Color(0xFF6B7280)),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6),
-                    decoration: BoxDecoration(
-                      color:
-                          Colors.red.withOpacity(.1),
-                      borderRadius:
-                          BorderRadius.circular(
-                              14),
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
                     ),
-                    child: const Text(
-                      "Urgency: High",
-                      style: TextStyle(
-                          color: Colors.red,
-                          fontWeight:
-                              FontWeight.w600),
+                    const SizedBox(height: 10),
+                    LinearProgressIndicator(
+                      value: topConfidence,
+                      minHeight: 8,
+                      backgroundColor: Colors.grey.withOpacity(.2),
+                      valueColor:
+                      const AlwaysStoppedAnimation(AppTheme.primary),
                     ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEAF0FF),
-                      borderRadius:
-                          BorderRadius.circular(
-                              14),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Confidence ${(topConfidence * 100).toStringAsFixed(0)}%",
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
-                    child: const Text(
-                      "Recommended: Primary care / Pulmonology",
-                      style: TextStyle(
-                          color:
-                              Color(0xFF2F6BFF),
-                          fontWeight:
-                              FontWeight.w500),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-            /// POSSIBLE CONDITIONS SECTION
-            const Text(
-              "Possible conditions",
-              style: TextStyle(
+              /// GUIDANCE CARD
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: AppTheme.cardDecoration,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Medical Guidance",
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 10),
+                    Text("Symptoms: $symptom"),
+
+                    const SizedBox(height: 10),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: urgencyColor.withOpacity(.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "Urgency: $urgency",
+                        style: TextStyle(
+                          color: urgencyColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 15),
+                    Text("Recommended Doctor: $doctor"),
+                    const SizedBox(height: 10),
+                    Text("Advice: $advice"),
+                    const SizedBox(height: 10),
+                    Text("Recommendation: $recommendation"),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              const Text(
+                "Other Possible Conditions",
+                style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              "These are general possibilities based on your input. A clinician can confirm with history, exam, and tests.",
-              style:
-                  TextStyle(color: Color(0xFF6B7280)),
-            ),
-            const SizedBox(height: 18),
-
-            conditionCard(
-              title:
-                  "Viral upper respiratory infection",
-              likelihood: "Medium",
-              likelihoodColor:
-                  const Color(0xFF2F6BFF),
-              description:
-                  "Common with sore throat, cough, fatigue. Hydration + rest often help.",
-            ),
-
-            const SizedBox(height: 14),
-
-            conditionCard(
-              title: "Allergic irritation",
-              likelihood: "Low",
-              likelihoodColor:
-                  const Color(0xFF9CA3AF),
-              description:
-                  "Can cause congestion, itchy throat/eyes. Consider exposure triggers.",
-            ),
-
-            const SizedBox(height: 14),
-
-            conditionCard(
-              title:
-                  "Bacterial infection (possible)",
-              likelihood: "Low",
-              likelihoodColor:
-                  const Color(0xFF9CA3AF),
-              description:
-                  "Certain features may need clinician evaluation and testing.",
-            ),
-
-            const SizedBox(height: 24),
-
-            /// WHEN TO CONSULT SECTION
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color:
-                    Colors.orange.withOpacity(.08),
-                borderRadius:
-                    BorderRadius.circular(22),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    "When to consult a doctor",
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    "Seek urgent care if you have trouble breathing, chest pain, fainting, confusion, severe dehydration, sudden weakness, or a rapidly spreading rash.",
-                  ),
-                  SizedBox(height: 12),
-                  Text("✔ Symptoms worsen or don’t improve in 24–48 hours"),
-                  Text("✔ High fever, persistent vomiting, or severe pain"),
-                  Text("✔ You’re pregnant, immunocompromised, or elderly"),
-                ],
+
+              const SizedBox(height: 14),
+
+              ...predictions.skip(1).map<Widget>((item) {
+                final disease = item["disease"];
+                final confidence = (item["confidence"] as num).toDouble();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: diseaseCard(disease, confidence),
+                );
+              }).toList(),
+
+              const SizedBox(height: 20),
+
+              /// DISCLAIMER
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.yellow.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  "Disclaimer: This is an AI-assisted prediction and not a medical diagnosis.",
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget conditionCard({
-    required String title,
-    required String likelihood,
-    required Color likelihoodColor,
-    required String description,
-  }) {
+  Widget diseaseCard(String disease, double confidence) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+      decoration: AppTheme.cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.monitor_heart,
-              color: Color(0xFF2F6BFF)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight:
-                            FontWeight.w600)),
-                const SizedBox(height: 6),
-                Text(description,
-                    style: const TextStyle(
-                        color:
-                            Color(0xFF6B7280))),
-              ],
-            ),
+          Row(
+            children: [
+              const Icon(Icons.medical_services, color: AppTheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  disease,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                "${(confidence * 100).toStringAsFixed(0)}%",
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: likelihoodColor.withOpacity(.1),
-              borderRadius:
-                  BorderRadius.circular(14),
-            ),
-            child: Text(
-              "Likelihood: $likelihood",
-              style: TextStyle(
-                  color: likelihoodColor,
-                  fontWeight:
-                      FontWeight.w500),
-            ),
-          )
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: confidence,
+            minHeight: 8,
+            backgroundColor: Colors.grey.withOpacity(.2),
+            valueColor:
+            const AlwaysStoppedAnimation(AppTheme.primary),
+          ),
         ],
       ),
     );

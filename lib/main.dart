@@ -1,9 +1,28 @@
+import 'package:doc_assist/provider/result_provider.dart';
+import 'package:doc_assist/provider/settings_provider.dart';
+import 'package:doc_assist/screens/login_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'provider/document_provider.dart';
-import 'screens/home_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+import 'package:doc_assist/core/theme.dart';
+import 'provider/document_provider.dart';
+import 'screens/main_navigation.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Initialize Supabase
+  await Supabase.initialize(
+    url: 'https://aywxozucnynuqxjqvybh.supabase.co',
+    anonKey: 'sb_publishable_m163a-zIYLkTXEpxC_gMyg_zfSpzOfu',
+  );
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
   runApp(const DoccyApp());
 }
 
@@ -12,11 +31,27 @@ class DoccyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => DocumentProvider(),
-      child: const MaterialApp(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => DocumentProvider()),
+        ChangeNotifierProvider(create: (_) => ResultProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()), // ADD THIS
+      ],
+      child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: HomeScreen(),
+        title: 'Doccy',
+        theme: AppTheme.lightTheme,
+        home: Supabase.instance.client.auth.currentSession == null
+            ? const LoginScreen()
+            : const MainNavigation(),
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: const TextScaler.linear(1.0),
+            ),
+            child: child!,
+          );
+        },
       ),
     );
   }

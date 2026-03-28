@@ -15,4 +15,16 @@ class DocumentProvider extends ChangeNotifier {
     _documents.removeAt(index);
     notifyListeners();
   }
+
+  void clearDocuments() {
+    _documents.clear();
+    notifyListeners();
+  }
+
+  /// 🔥 Combine all extracted document text
+  String getCombinedText() {
+    return _documents
+        .map((doc) => doc.extractedText ?? "")
+        .join(" ");
+  }
 }

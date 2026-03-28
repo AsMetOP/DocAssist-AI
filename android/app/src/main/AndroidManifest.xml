@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
-
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Required if you ever store images to gallery (safe to keep) -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -12,7 +14,7 @@
         android:required="false" />
 
     <application
-        android:label="doc_assist"
+        android:label="DocAssist AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

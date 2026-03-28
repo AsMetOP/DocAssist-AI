@@ -1,157 +1,221 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:doc_assist/core/theme.dart';
 
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F9),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF3F5F9),
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          "History",
-          style: TextStyle(color: Colors.black),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: ListView(
-          children: [
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
 
-            /// HEADER CARD
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF0FF),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: const [
-                  Row(
-                    children: [
-                      Icon(Icons.history,
-                          color: Color(0xFF2F6BFF)),
-                      SizedBox(width: 8),
-                      Text(
-                        "Session history",
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16),
-                      )
-                    ],
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    "Review previous symptom checks. This is local UI demo data for now.",
-                  ),
-                ],
-              ),
+class _HistoryScreenState extends State<HistoryScreen> {
+  final supabase = Supabase.instance.client;
+  List historyList = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadHistory();
+  }
+
+  Future<void> loadHistory() async {
+    final user = supabase.auth.currentUser;
+
+    /// Fetch all reports sorted by date
+    final textData = await supabase
+        .from('text_reports')
+        .select()
+        .eq('user_id', user!.id)
+        .order('created_at', ascending: false);
+
+    final imageData = await supabase
+        .from('image_reports')
+        .select()
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false);
+
+    final voiceData = await supabase
+        .from('voice_reports')
+        .select()
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false);
+
+    List tempHistory = [];
+
+    int count = textData.length;
+
+    for (int i = 0; i < count; i++) {
+      var text = textData[i];
+      var image = i < imageData.length ? imageData[i] : null;
+      var voice = i < voiceData.length ? voiceData[i] : null;
+
+      /// -------- FUSION ----------
+      Map<String, double> scoreMap = {};
+
+      void addPrediction(String? disease, dynamic confidence, double weight) {
+        if (disease == null || confidence == null) return;
+
+        double conf = (confidence is int)
+            ? confidence.toDouble()
+            : confidence;
+
+        scoreMap[disease] = (scoreMap[disease] ?? 0) + (conf * weight);
+      }
+
+      /// TEXT
+      addPrediction(text['prediction'], text['confidence'], 0.5);
+      addPrediction(text['prediction2'], text['confidence2'], 0.5);
+      addPrediction(text['prediction3'], text['confidence3'], 0.5);
+
+      /// IMAGE
+      if (image != null) {
+        addPrediction(image['prediction'], image['confidence'], 0.3);
+        addPrediction(image['prediction2'], image['confidence2'], 0.3);
+        addPrediction(image['prediction3'], image['confidence3'], 0.3);
+      }
+
+      /// VOICE
+      if (voice != null) {
+        addPrediction(voice['prediction'], voice['confidence'], 0.2);
+        addPrediction(voice['prediction2'], voice['confidence2'], 0.2);
+        addPrediction(voice['prediction3'], voice['confidence3'], 0.2);
+      }
+
+      /// Convert to sorted list
+      List finalPredictions = scoreMap.entries.map((e) {
+        return {"disease": e.key, "confidence": e.value};
+      }).toList();
+
+      finalPredictions.sort(
+              (a, b) => (b["confidence"]).compareTo(a["confidence"]));
+
+      finalPredictions = finalPredictions.take(3).toList();
+
+      tempHistory.add({
+        "date": text['created_at'],
+        "description": text['description'],
+        "duration": text['duration'],
+        "severity": text['severity'],
+        "body_area": text['body_area'],
+        "predictions": finalPredictions,
+      });
+    }
+
+    setState(() {
+      historyList = tempHistory;
+      loading = false;
+    });
+  }
+
+  Widget predictionRow(String disease, double confidence) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(disease),
+          Text(
+            "${(confidence * 100).toStringAsFixed(0)}%",
+            style: const TextStyle(
+              color: AppTheme.primary,
+              fontWeight: FontWeight.bold,
             ),
-
-            const SizedBox(height: 20),
-
-            /// SEARCH BOX
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(18),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: "Search past sessions",
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 22),
-
-            /// SESSION 1
-            historyCard(
-              title: "Dry cough + sore throat • 2 days",
-              date: "19/2/2026, 5:02:37 PM",
-              urgency: "Low",
-              color: const Color(0xFF22C55E),
-            ),
-
-            const SizedBox(height: 14),
-
-            /// SESSION 2
-            historyCard(
-              title: "Rash on forearm • itching",
-              date: "12/2/2026, 3:02:37 PM",
-              urgency: "Medium",
-              color: const Color(0xFFF59E0B),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  static Widget historyCard({
-    required String title,
-    required String date,
-    required String urgency,
-    required Color color,
-  }) {
+  Widget historyCard(Map item) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.monitor_heart,
-              color: Color(0xFF2F6BFF)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight:
-                            FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(date,
-                    style: const TextStyle(
-                        color:
-                            Color(0xFF6B7280))),
-              ],
-            ),
+        color: Colors.white.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(.15),
-              borderRadius:
-                  BorderRadius.circular(14),
-            ),
-            child: Text(
-              "Urgency: $urgency",
-              style: TextStyle(
-                color: color,
-                fontWeight:
-                    FontWeight.w600,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          /// Date
+          Row(
+            children: [
+              const Icon(Icons.analytics, color: AppTheme.primary),
+              const SizedBox(width: 10),
+              const Text(
+                "AI Result",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                ),
               ),
-            ),
+              const Spacer(),
+              Text(
+                item['date'].toString().substring(0, 10),
+                style: const TextStyle(color: AppTheme.textGrey),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Text("Symptoms: ${item['description'] ?? '-'}"),
+          Text("Duration: ${item['duration'] ?? '-'}"),
+          Text("Severity: ${item['severity'] ?? '-'}"),
+          Text("Body Area: ${item['body_area'] ?? '-'}"),
+
+          const SizedBox(height: 12),
+
+          const Text(
+            "Top Predictions",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+
+          ...item['predictions']
+              .map<Widget>((p) => predictionRow(
+            p["disease"],
+            p["confidence"],
+          ))
+              .toList(),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.bg,
+      appBar: AppBar(
+        title: const Text("History"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: loadHistory,
           )
         ],
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : historyList.isEmpty
+          ? const Center(child: Text("No history yet"))
+          : Padding(
+        padding: const EdgeInsets.all(22),
+        child: ListView.builder(
+          itemCount: historyList.length,
+          itemBuilder: (context, index) {
+            return historyCard(historyList[index]);
+          },
+        ),
       ),
     );
   }

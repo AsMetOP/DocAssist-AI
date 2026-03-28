@@ -1,329 +1,195 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:doc_assist/core/theme.dart';
 
-class DocumentsScreen extends StatelessWidget {
-  const DocumentsScreen({super.key});
+import '../provider/settings_provider.dart';
+
+class DocumentScreen extends StatefulWidget {
+  const DocumentScreen({super.key});
+
+  @override
+  State<DocumentScreen> createState() => _DocumentScreenState();
+}
+
+class _DocumentScreenState extends State<DocumentScreen> {
+  final supabase = Supabase.instance.client;
+
+  List documents = [];
+  String selectedTag = "Prescription";
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadDocuments();
+    listenToChanges(); // REALTIME AUTO REFRESH
+  }
+
+  Future<void> loadDocuments() async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+
+    if (settings.anonymousMode) {
+      setState(() {
+        documents = [];
+        isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    final user = supabase.auth.currentUser;
+
+    final data = await supabase
+        .from('documents')
+        .select()
+        .eq('user_id', user!.id)
+        .order('uploaded_at', ascending: false);
+
+    setState(() {
+      documents = data;
+      isLoading = false;
+    });
+  }
+
+  /// REALTIME LISTENER (AUTO REFRESH WHEN NEW DOC UPLOADED)
+  void listenToChanges() {
+    final user = supabase.auth.currentUser;
+
+    supabase
+        .channel('documents')
+        .onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'documents',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'user_id',
+        value: user!.id,
+      ),
+      callback: (payload) {
+        loadDocuments();
+      },
+    )
+        .subscribe();
+  }
+
+  Widget tagChip(String tag) {
+    return ChoiceChip(
+      label: Text(tag),
+      selected: selectedTag == tag,
+      onSelected: (_) {
+        setState(() {
+          selectedTag = tag;
+        });
+      },
+      selectedColor: AppTheme.primary,
+      labelStyle: const TextStyle(color: Colors.black),
+    );
+  }
+
+  Widget buildSection(String tag) {
+    final filtered =
+    documents.where((doc) => doc['tag'] == tag).toList();
+
+    if (filtered.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(tag,
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
+
+        ...filtered.map((doc) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(10),
+            decoration: AppTheme.cardDecoration,
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    doc['file_url'],
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: Text(
+                    doc['name'] ?? "Document",
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () async {
+                    await supabase
+                        .from('documents')
+                        .delete()
+                        .eq('id', doc['id']);
+                    loadDocuments();
+                  },
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+
+        const SizedBox(height: 20),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F5F9),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF3F5F9),
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          "Document Vault",
-          style: TextStyle(color: Colors.black),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: ListView(
-          children: [
-
-            /// UPLOAD CARD
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
+      backgroundColor: AppTheme.bg,
+      appBar: AppBar(title: const Text("Documents")),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+        onRefresh: loadDocuments,
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: ListView(
+            children: [
+              const Text(
+                "Your Medical Documents",
+                style:
+                TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+
+              const SizedBox(height: 14),
+
+              Wrap(
+                spacing: 10,
                 children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.insert_drive_file_outlined,
-                          color: Color(0xFF2F6BFF)),
-                      SizedBox(width: 8),
-                      Text(
-                        "Secure document storage",
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    "Upload PDFs/images, tag by date/doctor/condition, and quickly search your records.",
-                    style: TextStyle(color: Color(0xFF6B7280)),
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2F6BFF),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: () {},
-                      icon: const Icon(Icons.upload_outlined),
-                      label: const Text("Upload"),
-                    ),
-                  ),
+                  tagChip("Prescription"),
+                  tagChip("Lab Report"),
+                  tagChip("Scan"),
+                  tagChip("Other"),
                 ],
               ),
-            ),
 
-            const SizedBox(height: 22),
+              const SizedBox(height: 20),
 
-            /// SEARCH BAR
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  icon: Icon(Icons.search),
-                  hintText: "Search by file name",
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
-            /// TYPE FILTER
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
-              children: const [
-                Text("Type",
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600)),
-                Text("Filter",
-                    style: TextStyle(
-                        color: Color(0xFF6B7280))),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                filterChip("All", true),
-                filterChip("Prescription", false),
-                filterChip("Lab", false),
-                filterChip("Scan", false),
-                filterChip("Discharge", false),
-                filterChip("Other", false),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            /// TAG INPUT
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  icon: Icon(Icons.label_outline),
-                  hintText:
-                      "e.g., asthma, Dr. Lee, CBC",
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 22),
-
-            /// STORED FILES
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
-              children: const [
-                Text("Stored files",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
-                Text("2 items",
-                    style: TextStyle(
-                        color: Color(0xFF6B7280))),
-              ],
-            ),
-
-            const SizedBox(height: 14),
-
-            documentCard(
-              fileType: "PDF",
-              fileName: "CBC_Lab_Report.pdf",
-              date: "10/2/2026",
-              category: "Lab",
-              tags: const ["CBC", "Routine"],
-            ),
-
-            const SizedBox(height: 14),
-
-            documentCard(
-              fileType: "IMG",
-              fileName: "Prescription_Amoxicillin.png",
-              date: "21/1/2026",
-              category: "Prescription",
-              tags: const ["Antibiotic"],
-            ),
-          ],
+              buildSection("Prescription"),
+              buildSection("Lab Report"),
+              buildSection("Scan"),
+              buildSection("Other"),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  static Widget filterChip(
-      String label, bool selected) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected
-            ? const Color(0xFFEAF0FF)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              color: selected
-                  ? const Color(0xFF2F6BFF)
-                  : Colors.black)),
-    );
-  }
-
-  static Widget documentCard({
-    required String fileType,
-    required String fileName,
-    required String date,
-    required String category,
-    required List<String> tags,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF0FF),
-                  borderRadius:
-                      BorderRadius.circular(14),
-                ),
-                child: Text(fileType,
-                    style: const TextStyle(
-                        color:
-                            Color(0xFF2F6BFF),
-                        fontWeight:
-                            FontWeight.w600)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(fileName,
-                        style: const TextStyle(
-                            fontWeight:
-                                FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(
-                      "$date  •  $category",
-                      style: const TextStyle(
-                          color:
-                              Color(0xFF6B7280)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          Wrap(
-            spacing: 8,
-            children: tags
-                .map(
-                  (tag) => Container(
-                    padding:
-                        const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6),
-                    decoration: BoxDecoration(
-                      color:
-                          const Color(0xFFF3F5F9),
-                      borderRadius:
-                          BorderRadius.circular(
-                              12),
-                    ),
-                    child: Text(tag),
-                  ),
-                )
-                .toList(),
-          ),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor:
-                        const Color(0xFFEAF0FF),
-                    foregroundColor:
-                        const Color(0xFF2F6BFF),
-                    side: BorderSide.none,
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                              14),
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: const Text("View"),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                              14),
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: const Text("Download"),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
