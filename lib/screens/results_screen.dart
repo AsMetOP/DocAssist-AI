@@ -23,8 +23,9 @@ class ResultsScreen extends StatelessWidget {
     final predictions = result?["top_predictions"] ?? [];
 
     final urgency = guidance["urgency"] ?? "Unknown";
-    final recommendation =
-        guidance["recommendation"] ?? "Consult a clinician.";
+    final firstAid = result?["first_aid"];
+    final severityFromImage = result?["severity"];
+    final recommendation = firstAid ?? guidance["recommendation"] ?? "Consult a clinician.";
     final doctor = guidance["doctor"] ?? "General Physician";
     final advice = guidance["advice"] ?? "Rest and monitor symptoms.";
 
@@ -142,12 +143,20 @@ class ResultsScreen extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 15),
+                    if (severityFromImage != null) ...[
+                      Text("Injury Severity: $severityFromImage"),
+                      const SizedBox(height: 10),
+                    ],
+
                     Text("Recommended Doctor: $doctor"),
                     const SizedBox(height: 10),
                     Text("Advice: $advice"),
                     const SizedBox(height: 10),
-                    Text("Recommendation: $recommendation"),
+                    Text(
+                      firstAid != null
+                          ? "First Aid: $recommendation"
+                          : "Recommendation: $recommendation",
+                    ),
                   ],
                 ),
               ),

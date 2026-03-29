@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
@@ -13,6 +15,7 @@ import 'results_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+
 
 class SymptomScreen extends StatefulWidget {
   const SymptomScreen({super.key});
@@ -339,45 +342,84 @@ class _SymptomScreenState extends State<SymptomScreen>
       }
 
       /// ---------------- IMAGE MODEL ----------------
+
       Map<String, dynamic> imageResult = {};
       List imagePredictions = [];
 
-      var imageRequest = http.MultipartRequest('POST', Uri.parse(imageUrl));
-      imageRequest.fields['description'] = _symptomController.text;
+      String? imageSeverity;
+      String? imageFirstAid;
+      double imageConfidence = 0.0;
+      String? imageDisease;
 
-      for (var file in attachments) {
-        if (file.endsWith(".jpg") ||
-            file.endsWith(".png") ||
-            file.endsWith(".jpeg")) {
-          imageRequest.files.add(await http.MultipartFile.fromPath('file', file));
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(imageUrl),
+      );
+
+      request.headers['Accept'] = 'application/json';
+
+// Same like text description
+      request.fields['description'] = combinedText;
+
+// Attach image as bytes (VERY IMPORTANT)
+      for (var filePath in attachments) {
+        if (filePath.toLowerCase().endsWith(".jpg") ||
+            filePath.toLowerCase().endsWith(".png") ||
+            filePath.toLowerCase().endsWith(".jpeg") ||
+            filePath.toLowerCase().endsWith(".avif") ||
+            filePath.toLowerCase().endsWith(".heic")) {
+
+          final bytes = await File(filePath).readAsBytes();
+
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'file',
+              bytes,
+              filename: "image.jpg",
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
         }
       }
 
-      if (imageRequest.files.isNotEmpty) {
-        var response = await imageRequest.send();
-        final body = await response.stream.bytesToString();
+      var response = await request.send();
+      final responseBody = await response.stream.bytesToString();
 
-        print("IMAGE STATUS: ${response.statusCode}");
-        print("IMAGE BODY: $body");
+      print("IMAGE STATUS: ${response.statusCode}");
+      print("IMAGE BODY: $responseBody");
 
-        if (body.startsWith("{")) {
-          imageResult = jsonDecode(body);
-          imagePredictions = imageResult["top_predictions"] ?? [];
-        }
+      if (response.statusCode == 200) {
+        imageResult = jsonDecode(responseBody);
+
+        imageDisease = imageResult["injury"];
+        imageConfidence = (imageResult["confidence"] ?? 0) / 100;
+        imageSeverity = imageResult["severity"];
+        imageFirstAid = imageResult["first_aid"];
+
+        imagePredictions = [
+          {
+            "disease": imageDisease,
+            "confidence": imageConfidence
+          }
+        ];
       }
+
+      /// SAVE IMAGE REPORT (same style as text)
       if (imagePredictions.isNotEmpty && user != null) {
         await supabase.from('image_reports').insert({
           'user_id': user.id,
-          'image_url': attachments.first,
-
-          'prediction': imagePredictions.isNotEmpty ? imagePredictions[0]["disease"] : null,
-          'confidence': imagePredictions.isNotEmpty ? imagePredictions[0]["confidence"] : null,
+          'image_url': attachments.isNotEmpty ? attachments.first : null,
+          'prediction': imageResult["injury"],
+          'confidence': (imageResult["confidence"] ?? 0) / 100,
+          'first_aid': imageFirstAid,
         });
       }
+
 
       /// ---------------- VOICE MODEL ----------------
       Map<String, dynamic> voiceResult = {};
       List voicePredictions = [];
+
       String? audioFile;
 
       for (var file in attachments) {
@@ -388,38 +430,54 @@ class _SymptomScreenState extends State<SymptomScreen>
       }
 
       if (audioFile != null) {
-        var request = http.MultipartRequest('POST', Uri.parse(voiceUrl));
-        request.fields['description'] = _symptomController.text;
-        request.files.add(await http.MultipartFile.fromPath('file', audioFile));
+        var request = http.MultipartRequest(
+          'POST',
+          Uri.parse(voiceUrl),
+        );
+
+        request.headers['Accept'] = 'application/json';
+        request.fields['description'] = combinedText;
+
+        final bytes = await File(audioFile).readAsBytes();
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file', // change to 'audio' if swagger says audio
+            bytes,
+            filename: "audio.aac",
+            contentType: MediaType('audio', 'aac'),
+          ),
+        );
 
         var response = await request.send();
-        final body = await response.stream.bytesToString();
+        final responseBody = await response.stream.bytesToString();
 
         print("VOICE STATUS: ${response.statusCode}");
-        print("VOICE BODY: $body");
+        print("VOICE BODY: $responseBody");
 
-        if (body.startsWith("{")) {
-          voiceResult = jsonDecode(body);
-          voicePredictions = voiceResult["top_predictions"] ?? [];
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(responseBody);
+
+          // Convert to standard format
+          voicePredictions = (decoded as List).map((item) {
+            return {
+              "disease": item["label"],
+              "confidence": item["score"],
+            };
+          }).toList();
         }
-      }
-      if (voicePredictions.isNotEmpty && user != null) {
-        await supabase.from('voice_reports').insert({
-          'user_id': user.id,
-          'voice_url': audioFile,
-
-          'prediction': voicePredictions.isNotEmpty ? voicePredictions[0]["disease"] : null,
-          'confidence': voicePredictions.isNotEmpty ? voicePredictions[0]["confidence"] : null,
-        });
       }
 
       /// ---------------- SMART FUSION ----------------
       Map<String, double> scoreMap = {};
 
+      String? finalSeverity;
+      String? finalFirstAid;
+
       void addPredictions(List preds, double weight) {
         for (var item in preds) {
-          String disease = item["disease"];
-          double confidence = item["confidence"] * weight;
+          String disease = item["disease"] ?? item["label"];
+          double confidence = (item["confidence"] ?? item["score"]) * weight;
           scoreMap[disease] = (scoreMap[disease] ?? 0) + confidence;
         }
       }
@@ -440,10 +498,34 @@ class _SymptomScreenState extends State<SymptomScreen>
 
       combinedPredictions = combinedPredictions.take(3).toList();
 
+      double textTop = textPredictions.isNotEmpty ? textPredictions[0]["confidence"] * 0.5 : 0;
+      double imageTop = imagePredictions.isNotEmpty ? imagePredictions[0]["confidence"] * 0.3 : 0;
+      double voiceTop = voicePredictions.isNotEmpty ? voicePredictions[0]["confidence"] * 0.2 : 0;
+
+      if (combinedPredictions.isNotEmpty && imageDisease != null) {
+        String topDisease = combinedPredictions[0]["disease"];
+
+        // Compare ignoring case
+        if (topDisease.toLowerCase() == imageDisease.toLowerCase()) {
+          finalFirstAid = imageFirstAid;
+          finalSeverity = imageSeverity;
+        }
+      }
+
+      print("TOP DISEASE: ${combinedPredictions.isNotEmpty ? combinedPredictions[0]["disease"] : "None"}");
+      print("IMAGE DISEASE: $imageDisease");
+      print("FINAL FIRST AID: $finalFirstAid");
+
       final finalResult = {
         "structured_guidance": textResult["structured_guidance"] ?? {},
         "top_predictions": combinedPredictions,
+        "first_aid": finalFirstAid,
       };
+
+      // Find highest contributing model
+      if (imageTop > textTop && imageTop > voiceTop) {
+        finalFirstAid = imageFirstAid;
+      }
 
       stopLoadingAnimation();
       if (context.mounted) Navigator.pop(context);
