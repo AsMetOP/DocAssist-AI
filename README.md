@@ -4,7 +4,7 @@
 
 # 🩺 DoccyAI
 
-### Multimodal Medical Assistant for Preliminary Health Assessment
+### Multimodal Medical Assistant for Preliminary Health Assessments
 
 *Because getting a first opinion shouldn't require a waiting room.*
 
